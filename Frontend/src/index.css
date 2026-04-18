@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* The "Detailed Espresso" Theme */
+  --bg: #F5F2EC; /* Oatmeal background */
+  --surface: #FFFFFF;
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low: #FDFBF7; /* Cream */
+  --surface-container: #F5F2EC;
+  --surface-container-high: #E8E3DA; /* Warm Gray */
+  --surface-container-highest: #DCD6CD;
+  
+  --primary: #4A3B32; /* Espresso */
+  --primary-container: #EAE3D9;
+  --on-primary: #FFFFFF;
+  --secondary: #C48B57; /* Caramel */
+  --on-secondary: #FFFFFF;
+  --tertiary: #D97736; /* Orange tint for alerts/highlights */
+  
+  --on-surface: #2D241E; /* Deep Roast text */
+  --on-surface-variant: #6A5D54; /* Muted brown text */
+  --outline-variant: #DCD6CD; /* Muted borders */
+  --error: #E11D48;
+
+  --rounded-lg: 12px;
+  --rounded-xl: 16px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg);
+  background-image: 
+    radial-gradient(var(--surface-container-high) 1px, transparent 1px),
+    radial-gradient(var(--surface-container-high) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px; /* Subtle grid texture */
+  color: var(--on-surface);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Manrope', sans-serif;
+  margin: 0;
+  letter-spacing: -0.02em;
+  color: var(--primary);
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85); 
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--outline-variant);
+  border-bottom: 2px solid var(--surface-container-high); /* Add weight imitating depth */
+  border-radius: var(--rounded-lg);
+  box-shadow: 0 4px 24px rgba(74, 59, 50, 0.04);
+}
+
+/* Scrollbar styling for density */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-container-high);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--on-surface-variant);
+}

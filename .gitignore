@@ -1,0 +1,47 @@
+# ─── Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+Backend/node_modules/
+Frontend/node_modules/
+
+# ─── Python ─────────────────────────────────────────────────────────────────
+Backend/ai_agent/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# ─── Environment / Secrets ──────────────────────────────────────────────────
+.env
+Backend/.env
+Backend/ai_agent/.env
+*.env.local
+
+# ─── Build outputs ──────────────────────────────────────────────────────────
+Frontend/dist/
+Frontend/.vite/
+
+# ─── Logs & Debug ───────────────────────────────────────────────────────────
+*.log
+Backend/python_crash.log
+Backend/debug_failed_cv.tex
+Backend/ai_agent/output/
+
+# ─── Tectonic binary (large, platform-specific) ─────────────────────────────
+Backend/tectonic
+
+# ─── Test/scratch files ─────────────────────────────────────────────────────
+Backend/test*.js
+Backend/testNaukri.js
+
+# ─── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE ────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
