@@ -26,7 +26,7 @@ export default function ProfileReviewPage() {
     setIsCompiling(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/profile/compile-latex`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/profile/compile-latex`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ latexCode: codeToCompile })
@@ -63,7 +63,7 @@ export default function ProfileReviewPage() {
     try {
       const userInfo = JSON.parse(localStorage.getItem('user_info')) || {};
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/profile/confirm-resume`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/profile/confirm-resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: userInfo._id, finalLatex: latexCode })

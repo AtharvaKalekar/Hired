@@ -54,7 +54,7 @@ export default function OnboardingPage() {
         formData.append('resumePdf', resumeFile);
       }
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/profile/generate-cv`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/profile/generate-cv`, {
         method: 'POST',
         body: formData // No Content-Type header so browser boundary adds automatically
       });
