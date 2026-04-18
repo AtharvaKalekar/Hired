@@ -249,7 +249,10 @@ exports.generateApplicationPackage = async (req, res) => {
 
     const agentPath = path.join(__dirname, '..', 'ai_agent');
     const pythonScript = path.join(agentPath, 'tailor_resume.py');
+    // Use venv python locally, system python3 on Render/production
     const venvPython = path.join(agentPath, 'venv', 'bin', 'python3');
+    const systemPython = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonExec = require('fs').existsSync(venvPython) ? venvPython : systemPython;
     const fs = require('fs');
 
     // Write input to /tmp to avoid triggering nodemon (which watches the project dir)
@@ -274,7 +277,7 @@ exports.generateApplicationPackage = async (req, res) => {
       if (match) groqKey = match[1].trim();
     }
 
-    const pyProcess = spawn(venvPython, [pythonScript, tempInputPath], {
+    const pyProcess = spawn(pythonExec, [pythonScript, tempInputPath], {
       cwd: agentPath,
       env: { ...process.env, GROQ_API_KEY: groqKey || process.env.GROQ_API_KEY || '' }
     });
