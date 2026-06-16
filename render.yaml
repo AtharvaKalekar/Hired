@@ -21,11 +21,12 @@ services:
         sync: false   # Set this manually in the Render dashboard
 
   # Frontend Static Site
-  - type: static
+  - type: web
     name: hired-frontend
+    runtime: static
     rootDir: Frontend
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:
