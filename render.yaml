@@ -3,6 +3,7 @@ services:
   - type: web
     name: hired-backend
     env: node
+    plan: free
     rootDir: Backend
     buildCommand: npm install && python3 -m venv ai_agent/venv && ./ai_agent/venv/bin/pip install -r ai_agent/requirements.txt
     startCommand: node server.js
@@ -24,6 +25,7 @@ services:
   - type: web
     name: hired-frontend
     runtime: static
+    plan: free
     rootDir: Frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
