@@ -1,2 +1,10 @@
 litellm>=1.83.0,<2.0.0
 python-dotenv>=1.0.0
+crewai
+langchain-openai
+pymupdf
+selenium
+linkedin-scraper==2.11.2
+requests
+langchain
+langchain-community

@@ -4,8 +4,10 @@ import { Github, Linkedin, Code2, Link2, Sparkles, Terminal, CheckCircle2, Uploa
 import GlassPanel from '../components/ui/GlassPanel';
 import GlowingButton from '../components/ui/GlowingButton';
 import { useNavigate } from 'react-router-dom';
+import useIsMobile from '../hooks/useIsMobile';
 
 export default function OnboardingPage() {
+  const isMobile = useIsMobile();
   const [analyzing, setAnalyzing] = useState(false);
   const [complete, setComplete] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -121,7 +123,7 @@ export default function OnboardingPage() {
   );
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'center', minHeight: 'calc(100vh - 120px)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? '24px' : '48px', alignItems: 'center', minHeight: isMobile ? 'auto' : 'calc(100vh - 120px)' }}>
       
       {/* Left Column: Form */}
       <div>
@@ -129,7 +131,7 @@ export default function OnboardingPage() {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)', fontWeight: 700, marginBottom: '24px', fontSize: '12px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             <Sparkles size={14} /> Extraction Engine
           </div>
-          <h1 style={{ fontSize: '48px', lineHeight: '1.1', marginBottom: '16px', color: 'var(--primary)' }}>
+          <h1 style={{ fontSize: isMobile ? '32px' : '48px', lineHeight: '1.1', marginBottom: '16px', color: 'var(--primary)' }}>
             Systematic Career Synthesis.
           </h1>
           <p style={{ fontSize: '15px', color: 'var(--on-surface-variant)', lineHeight: '1.6', marginBottom: '32px' }}>
@@ -197,7 +199,7 @@ export default function OnboardingPage() {
 
       {/* Right Column: Terminal */}
       <div>
-        <GlassPanel intensity="highest" style={{ height: '480px', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: '0', overflow: 'hidden' }}>
+        <GlassPanel intensity="highest" style={{ height: isMobile ? '320px' : '480px', display: 'flex', flexDirection: 'column', background: 'var(--surface)', padding: '0', overflow: 'hidden' }}>
           <div style={{ padding: '12px 16px', background: 'var(--surface-container-high)', borderBottom: '1px solid var(--outline-variant)', display: 'flex', alignItems: 'center', gap: '12px' }}>
              <Terminal size={16} color="var(--on-surface-variant)" />
              <span style={{ fontSize: '12px', fontFamily: 'JetBrains Mono', color: 'var(--on-surface-variant)' }}>agent-terminal ~/synthesis</span>

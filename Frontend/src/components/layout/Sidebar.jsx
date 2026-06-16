@@ -1,9 +1,11 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Briefcase, Zap, Home, LayoutDashboard, MessageSquare, Plus, Activity, BookOpen } from 'lucide-react';
+import { X, Briefcase, Zap, Home, LayoutDashboard, MessageSquare, Plus, Activity, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
+import useIsMobile from '../../hooks/useIsMobile';
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
+  const isMobile = useIsMobile();
   const location = useLocation();
   const navItems = [
     { name: 'Core Engine', path: '/', icon: Zap, section: 'System' },
@@ -25,21 +27,41 @@ export default function Sidebar() {
       padding: '24px 16px',
       zIndex: 10,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingLeft: '8px', marginBottom: '32px' }}>
-        <div style={{
-          width: '32px', height: '32px',
-          background: 'var(--primary)',
-          borderRadius: '8px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <Briefcase size={16} color="var(--on-primary)" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingLeft: '8px', marginBottom: '32px', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '32px', height: '32px',
+            background: 'var(--primary)',
+            borderRadius: '8px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <Briefcase size={16} color="var(--on-primary)" />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '18px', lineHeight: 1.1, color: 'var(--primary)' }}>
+              HIRED<span style={{ color: 'var(--secondary)' }}>.AI</span>
+            </span>
+            <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Workspace</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '18px', lineHeight: 1.1, color: 'var(--primary)' }}>
-            HIRED<span style={{ color: 'var(--secondary)' }}>.AI</span>
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--on-surface-variant)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Workspace</span>
-        </div>
+
+        {isMobile && (
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--on-surface-variant)',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', paddingRight: '8px' }}>
@@ -54,6 +76,9 @@ export default function Sidebar() {
                 <NavLink 
                   key={item.path} 
                   to={item.path}
+                  onClick={() => {
+                    if (isMobile && onClose) onClose();
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

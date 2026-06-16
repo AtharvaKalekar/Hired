@@ -4,6 +4,7 @@ const jobController = require('../controllers/jobController');
 
 router.get('/matched/:userId', jobController.getMatchedJobs);
 router.post('/custom-search/:userId', jobController.customSearchJobs);
+router.get('/search-stream', jobController.searchStream);
 router.post('/swipe/:userId', jobController.swipeJob);
 router.get('/saved/:userId', jobController.getSavedJobs);
 router.post('/apply/:userId', jobController.generateApplicationPackage);

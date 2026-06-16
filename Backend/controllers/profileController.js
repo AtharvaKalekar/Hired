@@ -34,20 +34,50 @@ exports.generateCV = async (req, res) => {
       return url.split('/').filter(Boolean).pop();
     };
 
-    const gitUser = extractUsername(githubUrl);
-    const leetUser = extractUsername(leetcodeUrl);
+    const parseUsername = require('../utils/parseUsername');
+    const { fetchUserProfile, fetchUserRepoDetails } = require('../services/githubScraperService');
+    const { analyzeProfileWithGroq } = require('../services/githubGroqService');
+    const { buildJobMatchResponse } = require('../utils/jobProfileNormalizer');
+    const crypto = require('crypto');
+    const os = require('os');
+
+    const gitUser = parseUsername(githubUrl);
+
+    let githubPrefetchPath = '';
+    if (gitUser && gitUser.toLowerCase() !== 'none') {
+      try {
+        console.log(`[ProfileController] Starting JavaScript GitHub Scraper and Groq Analyzer for user: ${gitUser}...`);
+        const profile = await fetchUserProfile(gitUser);
+        const repoData = await fetchUserRepoDetails(gitUser, { maxRepos: 10, includeCode: true, maxFilesPerRepo: 5 });
+        const aiReport = await analyzeProfileWithGroq(profile, repoData.repos, repoData.primaryLanguages);
+        const normalized = buildJobMatchResponse(aiReport, profile, repoData.stats);
+        
+        const tempId = crypto.randomUUID();
+        githubPrefetchPath = path.join(os.tmpdir(), `${tempId}_github.json`);
+        fs.writeFileSync(githubPrefetchPath, JSON.stringify(normalized, null, 2), 'utf-8');
+        console.log(`[ProfileController] GitHub analysis completed and saved to ${githubPrefetchPath}`);
+      } catch (err) {
+        console.error(`[ProfileController] Warning: failed to fetch/analyze GitHub details: ${err.message}. AI agent will try to fallback.`);
+      }
+    }
     
+    // Explicitly skip leetcode by passing 'none' as requested
     const args = [
       pythonScript,
       gitUser || 'none',
-      leetUser || 'none',
+      'none',
       linkedinUrl || 'none',
       resumePath || 'none'
     ];
 
     console.log(`[AI Triggering...] Using python command: ${venvPythonExecutable} ${args.join(' ')}`);
 
-    const pythonProcess = spawn(venvPythonExecutable, args, { cwd: agentPath });
+    const spawnEnv = { ...process.env };
+    if (githubPrefetchPath) {
+      spawnEnv.GITHUB_PREFETCHED_DATA_PATH = githubPrefetchPath;
+    }
+
+    const pythonProcess = spawn(venvPythonExecutable, args, { cwd: agentPath, env: spawnEnv });
 
     let stdoutData = '';
     let stderrData = '';
@@ -88,6 +118,15 @@ exports.generateCV = async (req, res) => {
         fs.unlinkSync(resumePath);
       }
 
+      // Cleanup pre-fetched GitHub JSON file
+      if (githubPrefetchPath && fs.existsSync(githubPrefetchPath)) {
+        try {
+          fs.unlinkSync(githubPrefetchPath);
+        } catch (e) {
+          // ignore
+        }
+      }
+
       if (code === 0 && aiResult.status === 'success' && aiResult.output_file) {
         
         // Read the generated LaTeX file
@@ -100,7 +139,13 @@ exports.generateCV = async (req, res) => {
             githubUrl,
             linkedinUrl,
             leetcodeUrl,
-            cvLatex: latexContent
+            cvLatex: latexContent,
+            jobKeywords: aiResult.skills || [],
+            githubData: aiResult.github_data || '',
+            leetcodeData: aiResult.leetcode_data || '',
+            resumeData: aiResult.resume_data || '',
+            linkedinData: aiResult.linkedin_data || '',
+            githubReposData: aiResult.github_repos_data || ''
           },
           { new: true, runValidators: true }
         );
@@ -147,6 +192,9 @@ exports.compileLatex = async (req, res) => {
     latexCode = latexCode.replace(/\\usepackage(\[.*?\])?\{fontspec\}/g, '');
     latexCode = latexCode.replace(/\\setmainfont(\[.*?\])?\{.*?\}/g, '');
     latexCode = latexCode.replace(/\\setsansfont(\[.*?\])?\{.*?\}/g, '');
+    
+    // Correct common LLM option typos in itemize environments (e.g. noitemsep(topsep=0pt) -> noitemsep,topsep=0pt)
+    latexCode = latexCode.replace(/noitemsep\(topsep=([^)]+)\)/g, 'noitemsep,topsep=$1');
 
     const tempId = crypto.randomUUID();
     const tmpDir = os.tmpdir();
@@ -156,16 +204,10 @@ exports.compileLatex = async (req, res) => {
     // Write latex code to temp file
     fs.writeFileSync(texFilePath, latexCode);
 
+    const { exec, execFile } = require('child_process');
     const tectonicPath = path.join(__dirname, '..', 'tectonic');
 
-    // Make sure tectonic binary is executable
-    if (fs.existsSync(tectonicPath)) {
-      fs.chmodSync(tectonicPath, 0o755);
-    } else {
-      return res.status(500).json({ success: false, message: 'Tectonic compiler not found on server' });
-    }
-
-    execFile(tectonicPath, [texFilePath, '--outdir', tmpDir], (error, stdout, stderr) => {
+    const handleCompilationResult = (error, stdout, stderr) => {
       // Cleanup tex file immediately
       if (fs.existsSync(texFilePath)) fs.unlinkSync(texFilePath);
 
@@ -179,13 +221,22 @@ exports.compileLatex = async (req, res) => {
 
         return res.status(200).json({ success: true, pdfBase64 });
       } else {
-        const rawError = stderr || stdout || error.message || '';
+        const rawError = stderr || stdout || (error ? error.message : '') || '';
         // Try to string clean the cryptic tempId out of the tectonic error
         const cleanError = rawError.replace(new RegExp(`${tempId}\\.tex:`, 'gi'), 'Line ');
         console.error('Tectonic Error:', cleanError);
         return res.status(500).json({ success: false, message: 'Failed to compile LaTeX', error: cleanError });
       }
-    });
+    };
+
+    if (fs.existsSync(tectonicPath)) {
+      fs.chmodSync(tectonicPath, 0o755);
+      execFile(tectonicPath, [texFilePath, '--outdir', tmpDir], handleCompilationResult);
+    } else {
+      console.log('[ProfileController] Local tectonic binary not found. Trying system tectonic...');
+      const command = `export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin && tectonic "${texFilePath}" --outdir "${tmpDir}"`;
+      exec(command, handleCompilationResult);
+    }
 
   } catch (error) {
     console.error("Error in compileLatex:", error);
@@ -204,34 +255,80 @@ exports.confirmResume = async (req, res) => {
       return res.status(400).json({ success: false, message: 'User ID and final LaTeX are required' });
     }
 
-    // A simple basic NLP regex mapper for technical keywords.
-    // In a real production system, you would pass finalLatex to the LLM agent.
-    const techStackDictionary = ['react', 'node.js', 'python', 'javascript', 'typescript', 'java', 'c\\+\\+', 'aws', 'docker', 'kubernetes', 'mongodb', 'sql', 'postgres', 'graphql', 'next.js', 'django', 'flask', 'spring boot'];
+    const agentPath = path.join(__dirname, '..', 'ai_agent');
+    const extractScript = path.join(agentPath, 'extract_skills.py');
     
-    let extractedKeywords = new Set();
-    const lowerLatex = finalLatex.toLowerCase();
-    
-    for (let tech of techStackDictionary) {
-      const regex = new RegExp(`\\b${tech}\\b`, 'i');
-      if (regex.test(lowerLatex)) {
-        extractedKeywords.add(tech.replace('\\+', '+'));
+    // Check if venv python exists, else fallback to standard python3/python
+    const venvPython = path.join(agentPath, 'venv', 'bin', 'python3');
+    const systemPython = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonExec = fs.existsSync(venvPython) ? venvPython : systemPython;
+
+    console.log(`[AI Triggering...] Spawning skills extractor: ${pythonExec} ${extractScript}`);
+
+    const child = spawn(pythonExec, [extractScript], { cwd: agentPath });
+
+    let stdoutData = '';
+    let stderrData = '';
+
+    child.stdin.write(finalLatex);
+    child.stdin.end();
+
+    child.stdout.on('data', (data) => {
+      stdoutData += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderrData += data.toString();
+    });
+
+    child.on('close', async (code) => {
+      let keywordsArray = [];
+      if (code === 0) {
+        try {
+          keywordsArray = JSON.parse(stdoutData.trim());
+        } catch (err) {
+          console.error("Failed to parse extracted skills JSON:", err);
+        }
+      } else {
+        console.error("extract_skills.py exited with error code:", code, stderrData);
       }
-    }
 
-    const keywordsArray = Array.from(extractedKeywords);
+      console.log(`[AI Extracted Skills]: ${JSON.stringify(keywordsArray)}`);
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      {
-        cvLatex: finalLatex,
-        jobKeywords: keywordsArray
-      },
-      { new: true, runValidators: true }
-    );
+      const user = await User.findByIdAndUpdate(
+        userId,
+        {
+          cvLatex: finalLatex,
+          jobKeywords: keywordsArray
+        },
+        { new: true, runValidators: true }
+      );
 
-    res.status(200).json({ success: true, message: 'Resume confirmed and keywords extracted', jobKeywords: keywordsArray });
+      res.status(200).json({ 
+        success: true, 
+        message: 'Resume confirmed and keywords extracted', 
+        jobKeywords: keywordsArray 
+      });
+    });
+
   } catch (error) {
     console.error("Error in confirmResume:", error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// @desc    Get user profile data (including LaTeX CV and extracted metrics)
+// @route   GET /api/profile/:userId
+// @access  Public (Should be protected in production)
+exports.getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('+cvLatex');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    console.error("Error in getProfile:", error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

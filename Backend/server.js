@@ -20,11 +20,18 @@ app.use(cors({
       'http://localhost:3000',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000',
-      process.env.FRONTEND_URL, 
+      process.env.FRONTEND_URL,
     ].filter(Boolean);
+
+    // Dynamic matching for development localhost on different ports
+    const isLocalhost = origin && (
+      /^http:\/\/localhost:\d+$/.test(origin) ||
+      /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+    );
+
     // Allow requests with no origin (mobile apps, Postman, curl)
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    if (!origin || allowedOrigins.includes(origin) || isLocalhost) return callback(null, true);
+    callback(new Error('Not allowed by CORS: ' + origin));
   },
   credentials: true
 }));
@@ -41,5 +48,5 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5001;
-
+// Trigger hot-reload to refresh updated .env keys (final compiler update)
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

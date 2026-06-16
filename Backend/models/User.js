@@ -45,6 +45,26 @@ const userSchema = new mongoose.Schema({
     default: '',
     select: false, // Prevents loading the massive string on every user query unless explicitly requested
   },
+  githubData: {
+    type: String,
+    default: '',
+  },
+  leetcodeData: {
+    type: String,
+    default: '',
+  },
+  resumeData: {
+    type: String,
+    default: '',
+  },
+  linkedinData: {
+    type: String,
+    default: '',
+  },
+  githubReposData: {
+    type: String,
+    default: '',
+  },
   savedJobs: {
     type: Array,
     default: []

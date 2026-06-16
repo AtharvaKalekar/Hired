@@ -72,7 +72,7 @@ RULES:
 - Rewrite the Professional Summary and Bullet Points to specifically target the keywords in the target job.
 - Reorder the Technical Skills section to put the most relevant skills FIRST.
 - Keep it truthful — enhance framing, don't fabricate experience.
-- IT IS CRITICAL THAT THE RESUME DOES NOT EXCEED ONE PAGE. Limit the Projects section to EXACTLY 2 projects to guarantee it fits.
+- IT IS CRITICAL THAT THE RESUME DOES NOT EXCEED ONE PAGE. Let the number of projects included be a natural consequence of available space and quality, not a hardcoded number. Prioritize including the most relevant projects first.
 - Output ONLY the LaTeX code, nothing else.
 - CRITICAL: If you write ampersands (&) or percent signs (%) in the text, you MUST escape them as \\& and \\%. Do NOT escape ampersands inside structural alignments like \\begin{{tabular}}.
 - CRITICAL: DO NOT escape plus signs (+). Write C++ exactly as C++, never as C\\+\\+. 
@@ -241,6 +241,10 @@ Output the complete tailored LaTeX CV now:"""
     tailored_cv = tailored_cv.strip()
     if tailored_cv.startswith("```"):
         tailored_cv = tailored_cv.replace("```latex", "").replace("```tex", "").replace("```", "").strip()
+
+    # Deterministic LaTeX special character escaping post-processor
+    from tools.latex_sanitizer import sanitize_latex_document
+    tailored_cv = sanitize_latex_document(tailored_cv)
 
     # ---- Step 2: Generate Cover Letter ----
     cl_prompt = f"""Write a concise, professional cover letter for the following job application.

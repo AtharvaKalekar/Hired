@@ -3,12 +3,15 @@ import { motion } from 'framer-motion';
 import { X, Heart, CheckCircle2, FileText, Zap, MapPin, Search, Bookmark } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlassPanel from '../components/ui/GlassPanel';
+import useIsMobile from '../hooks/useIsMobile';
 
 export default function SwipeDiscoveryPage() {
+  const isMobile = useIsMobile();
   const [cards, setCards] = useState([]);
   const [direction, setDirection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [jobLocationFilter, setJobLocationFilter] = useState('All');
   
   const navigate = useNavigate();
   
@@ -51,9 +54,25 @@ export default function SwipeDiscoveryPage() {
     fetchJobs(searchQuery);
   };
 
+  const getFilteredCards = () => {
+    return cards.filter(job => {
+      if (jobLocationFilter === 'All') return true;
+      const loc = (job.location || '').toLowerCase();
+      if (jobLocationFilter === 'In India') {
+        return loc.includes('india');
+      }
+      if (jobLocationFilter === 'Remote') {
+        return loc.includes('remote');
+      }
+      return true;
+    });
+  };
+
+  const filteredCards = getFilteredCards();
+
   const handleSwipe = async (dir) => {
-    if (cards.length === 0) return;
-    const currentJob = cards[0];
+    if (filteredCards.length === 0) return;
+    const currentJob = filteredCards[0];
     
     setDirection(dir);
     
@@ -70,7 +89,7 @@ export default function SwipeDiscoveryPage() {
     }
 
     setTimeout(() => {
-      setCards(cards.slice(1));
+      setCards(prev => prev.filter(c => c.id !== currentJob.id));
       setDirection(null);
     }, 300);
   };
@@ -79,13 +98,13 @@ export default function SwipeDiscoveryPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)', gap: '24px' }}>
       
       {/* Top Filter Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', padding: '16px 24px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
-        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '12px', flex: 1, maxWidth: '600px' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '12px' : '0', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', background: 'var(--surface)', padding: isMobile ? '12px 16px' : '16px 24px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '12px', flex: 1, maxWidth: isMobile ? '100%' : '600px' }}>
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-container)', padding: '8px 16px', borderRadius: '8px', flex: 1, border: '1px solid var(--outline-variant)' }}>
             <Search size={18} color="var(--on-surface-variant)" style={{ marginRight: '12px' }} />
             <input 
               type="text" 
-              placeholder="Filter by role, stack, or target company (e.g., 'Backend Engineer Python')" 
+              placeholder={isMobile ? "Filter roles, stack..." : "Filter by role, stack, or target company (e.g., 'Backend Engineer Python')"} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ background: 'transparent', border: 'none', color: 'var(--on-surface)', outline: 'none', width: '100%', fontSize: '14px' }}
@@ -96,10 +115,33 @@ export default function SwipeDiscoveryPage() {
           </button>
         </form>
 
-        <button onClick={() => navigate('/saved-jobs')} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-container-high)', border: '1px solid var(--outline-variant)', color: 'var(--on-surface)', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+        <button onClick={() => navigate('/saved-jobs')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--surface-container-high)', border: '1px solid var(--outline-variant)', color: 'var(--on-surface)', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
           <Bookmark size={18} color="var(--primary)" />
           View Saved Jobs
         </button>
+      </div>
+
+      {/* Location Filters */}
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        {['All', 'In India', 'Remote'].map(filter => (
+          <button
+            key={filter}
+            onClick={() => setJobLocationFilter(filter)}
+            style={{
+              background: jobLocationFilter === filter ? 'rgba(196, 139, 87, 0.15)' : 'var(--surface-container-low)',
+              color: jobLocationFilter === filter ? 'var(--primary)' : 'var(--on-surface-variant)',
+              border: `1px solid ${jobLocationFilter === filter ? 'var(--primary)' : 'var(--outline-variant)'}`,
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {filter}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -107,44 +149,46 @@ export default function SwipeDiscoveryPage() {
           <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid var(--surface-container-high)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ marginTop: '24px', fontSize: '20px' }}>Mapping Global Pipelines...</h2>
         </div>
-      ) : cards.length === 0 ? (
+      ) : filteredCards.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
           <CheckCircle2 color="var(--primary)" size={48} style={{ marginBottom: '24px' }}/>
           <h2 style={{ fontSize: '24px' }}>Queue Empty</h2>
           <p style={{ color: 'var(--on-surface-variant)', fontSize: '14px' }}>No untracked jobs found for your criteria. Try adjusting your filters.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr minmax(300px, 1fr)', gap: '32px', flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(300px, 1fr) 2fr minmax(300px, 1fr)', gap: isMobile ? '16px' : '32px', flex: 1, minHeight: isMobile ? '480px' : 'auto' }}>
           
           {/* Left Data Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <h2 style={{ fontSize: '24px' }}>Dossier Review</h2>
-            <GlassPanel intensity="low" style={{ padding: '24px', flex: 1, border: '1px solid var(--outline-variant)' }}>
-               <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '16px', letterSpacing: '0.05em' }}>Required Tech Stack</h3>
-               
-               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
-                 {(cards[0].techStack || ['Software Engineering']).map((tech, i) => (
-                   <span key={i} style={{ background: 'rgba(196, 139, 87, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--secondary)', fontSize: '12px', fontWeight: 600 }}>
-                     {tech}
-                   </span>
-                 ))}
-               </div>
-
-               <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '8px', padding: '16px' }}>
-                 <h4 style={{ fontSize: '12px', color: 'var(--primary)', marginBottom: '12px' }}><FileText size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }}/> Extracted JD Tokens</h4>
-                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                   {['High Availability', 'Architecture', 'Agile', 'Scale'].map(t => (
-                     <span key={t} style={{ fontSize: '11px', background: 'var(--surface-container-low)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--surface-container-high)' }}>{t}</span>
+          {!isMobile && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <h2 style={{ fontSize: '24px' }}>Dossier Review</h2>
+              <GlassPanel intensity="low" style={{ padding: '24px', flex: 1, border: '1px solid var(--outline-variant)' }}>
+                 <h3 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '16px', letterSpacing: '0.05em' }}>Required Tech Stack</h3>
+                 
+                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
+                   {(filteredCards[0].techStack || ['Software Engineering']).map((tech, i) => (
+                     <span key={i} style={{ background: 'rgba(196, 139, 87, 0.1)', color: 'var(--secondary)', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--secondary)', fontSize: '12px', fontWeight: 600 }}>
+                       {tech}
+                     </span>
                    ))}
                  </div>
-               </div>
-            </GlassPanel>
-          </div>
+  
+                 <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '8px', padding: '16px' }}>
+                   <h4 style={{ fontSize: '12px', color: 'var(--primary)', marginBottom: '12px' }}><FileText size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }}/> Extracted JD Tokens</h4>
+                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                     {['High Availability', 'Architecture', 'Agile', 'Scale'].map(t => (
+                       <span key={t} style={{ fontSize: '11px', background: 'var(--surface-container-low)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--surface-container-high)' }}>{t}</span>
+                     ))}
+                   </div>
+                 </div>
+              </GlassPanel>
+            </div>
+          )}
 
           {/* Swipe Area */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
               <motion.div
-                key={cards[0].id || Math.random()}
+                key={filteredCards[0].id || Math.random()}
                 initial={{ opacity: 1, x: 0, scale: 1 }}
                 animate={
                   direction === 'left' ? { opacity: 0, x: -250, rotate: -15, scale: 0.9 }
@@ -154,41 +198,41 @@ export default function SwipeDiscoveryPage() {
                 transition={{ duration: 0.25 }}
                 style={{ width: '100%', height: '100%', position: 'absolute' }}
               >
-                <GlassPanel intensity="highest" style={{ width: '100%', height: '90%', display: 'flex', flexDirection: 'column', padding: '40px', background: 'var(--surface)' }}>
+                <GlassPanel intensity="highest" style={{ width: '100%', height: '90%', display: 'flex', flexDirection: 'column', padding: isMobile ? '20px' : '40px', background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                     <span style={{ background: 'var(--surface-container-low)', border: '1px solid var(--outline-variant)', padding: '6px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600 }}>
-                      <MapPin size={12} style={{ display: 'inline', marginRight: '4px' }}/> {cards[0].location}
+                      <MapPin size={12} style={{ display: 'inline', marginRight: '4px' }}/> {filteredCards[0].location}
                     </span>
-                    <span style={{ color: 'var(--secondary)', fontWeight: 800, fontSize: '18px' }}>{cards[0].matchPct}% MAT</span>
+                    <span style={{ color: 'var(--secondary)', fontWeight: 800, fontSize: isMobile ? '15px' : '18px' }}>{filteredCards[0].matchPct}% MAT</span>
                   </div>
                   
-                  <h2 style={{ fontSize: '36px', marginTop: '16px', marginBottom: '8px', lineHeight: 1.2 }}>{cards[0].role}</h2>
-                  <h3 style={{ color: 'var(--on-surface-variant)', fontSize: '20px', fontWeight: 500, marginBottom: '24px' }}>{cards[0].company}</h3>
+                  <h2 style={{ fontSize: isMobile ? '24px' : '36px', marginTop: '16px', marginBottom: '8px', lineHeight: 1.2 }}>{filteredCards[0].role}</h2>
+                  <h3 style={{ color: 'var(--on-surface-variant)', fontSize: isMobile ? '16px' : '20px', fontWeight: 500, marginBottom: '24px' }}>{filteredCards[0].company}</h3>
                   
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '32px' }}>
-                     <div style={{ padding: '16px', background: 'var(--surface-container-low)', borderRadius: '8px', flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: isMobile ? '16px' : '32px' }}>
+                     <div style={{ padding: isMobile ? '12px' : '16px', background: 'var(--surface-container-low)', borderRadius: '8px', flex: 1 }}>
                        <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)', textTransform: 'uppercase', marginBottom: '4px' }}>Compensation</div>
-                       <div style={{ fontWeight: 600 }}>{cards[0].salary}</div>
+                       <div style={{ fontWeight: 600 }}>{filteredCards[0].salary}</div>
                      </div>
-                     <div style={{ padding: '16px', background: 'var(--surface-container-low)', borderRadius: '8px', flex: 1 }}>
+                     <div style={{ padding: isMobile ? '12px' : '16px', background: 'var(--surface-container-low)', borderRadius: '8px', flex: 1 }}>
                        <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)', textTransform: 'uppercase', marginBottom: '4px' }}>Probability</div>
-                       <div style={{ fontWeight: 600, color: '#10B981' }}>{cards[0].matchPct > 80 ? 'Extremely High' : 'Average'}</div>
+                       <div style={{ fontWeight: 600, color: '#10B981' }}>{filteredCards[0].matchPct > 80 ? 'Extremely High' : 'Average'}</div>
                      </div>
                   </div>
 
                   <div style={{ 
                     marginTop: 'auto', 
-                    background: cards[0].isUrgent ? 'rgba(217, 119, 54, 0.05)' : 'rgba(196, 139, 87, 0.05)', 
-                    borderLeft: `4px solid ${cards[0].isUrgent ? 'var(--tertiary)' : 'var(--secondary)'}`,
-                    padding: '20px', 
+                    background: filteredCards[0].isUrgent ? 'rgba(217, 119, 54, 0.05)' : 'rgba(196, 139, 87, 0.05)', 
+                    borderLeft: `4px solid ${filteredCards[0].isUrgent ? 'var(--tertiary)' : 'var(--secondary)'}`,
+                    padding: isMobile ? '12px' : '20px', 
                     borderRadius: '0 8px 8px 0' 
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color: cards[0].isUrgent ? 'var(--tertiary)' : 'var(--secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color: filteredCards[0].isUrgent ? 'var(--tertiary)' : 'var(--secondary)' }}>
                       <Zap size={16} />
                       Strategic Insights
                     </div>
                     <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--on-surface-variant)' }}>
-                      Based on your CV, this role heavily leverages your {cards[0].techStack?.[0] || 'engineering'} experience. You are in the top 5% of candidates algorithmically evaluated for this req.
+                      Based on your CV, this role heavily leverages your {filteredCards[0].techStack?.[0] || 'engineering'} experience. You are in the top 5% of candidates algorithmically evaluated for this req.
                     </p>
                   </div>
 
@@ -214,16 +258,18 @@ export default function SwipeDiscoveryPage() {
           </div>
 
           {/* Right Column: Next Steps */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ padding: '24px', background: 'var(--surface-container-high)', borderRadius: '12px' }}>
-              <h3 style={{ fontSize: '14px', marginBottom: '16px' }}>If Accepted...</h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
-                <li style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}><CheckCircle2 size={16} color="var(--primary)" /> Save to pipeline</li>
-                <li style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}><CheckCircle2 size={16} color="var(--primary)" /> Agent extracts required Workday credentials</li>
-                <li style={{ display: 'flex', gap: '8px' }}><CheckCircle2 size={16} color="var(--primary)" /> Prepare personalized cover letter via AI</li>
-              </ul>
+          {!isMobile && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ padding: '24px', background: 'var(--surface-container-high)', borderRadius: '12px' }}>
+                <h3 style={{ fontSize: '14px', marginBottom: '16px' }}>If Accepted...</h3>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '13px', color: 'var(--on-surface-variant)', lineHeight: 1.6 }}>
+                  <li style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}><CheckCircle2 size={16} color="var(--primary)" /> Save to pipeline</li>
+                  <li style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}><CheckCircle2 size={16} color="var(--primary)" /> Agent extracts required Workday credentials</li>
+                  <li style={{ display: 'flex', gap: '8px' }}><CheckCircle2 size={16} color="var(--primary)" /> Prepare personalized cover letter via AI</li>
+                </ul>
+              </div>
             </div>
-          </div>
+          )}
           
         </div>
       )}

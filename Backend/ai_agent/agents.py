@@ -3,14 +3,21 @@ from crewai import Agent, LLM
 from tools.github_tool import get_github_profile
 from tools.leetcode_tool import get_leetcode_profile
 from tools.resume_tool import parse_resume
+from tools.linkedin_tool import get_linkedin_profile
 
 # ------------------------------------------------------------------ #
 #  High-Speed LLM via Groq LPU
 # ------------------------------------------------------------------ #
+# ------------------------------------------------------------------ #
+#  High-Speed LLM via Groq LPU
+# ------------------------------------------------------------------ #
 llm_engine = LLM(
-    model="groq/openai/gpt-oss-120b",
-    api_key=os.getenv("GROQ_API_KEY", "")
+    model="groq/llama-3.3-70b-versatile",  # Kept as requested by the user
+    api_key=os.getenv("GROQ_API_KEY", ""),
+    base_url="https://api.groq.com/openai/v1",
+    max_retries=10
 )
+
 
 # ------------------------------------------------------------------ #
 #  Agent 1 – Information Gatherer
@@ -20,17 +27,18 @@ data_gatherer = Agent(
     role="Information Gatherer",
     goal=(
         "Collect every piece of publicly available professional information "
-        "about the user from GitHub, LeetCode, and their uploaded resume."
+        "about the user from GitHub, LeetCode, LinkedIn, and their uploaded resume."
     ),
     backstory=(
         "You are a meticulous OSINT researcher with deep expertise in developer "
         "profiles. You know exactly which data points matter for technical hiring. "
         "You always return complete, structured, raw data without summarizing or omitting anything."
     ),
-    tools=[get_github_profile, get_leetcode_profile, parse_resume],
+    tools=[get_github_profile, get_leetcode_profile, parse_resume, get_linkedin_profile],
     llm=llm_engine,
     verbose=True,
     allow_delegation=False,
+    memory=False,                     # Disable memory to avoid extra summarization calls
 )
 
 # ------------------------------------------------------------------ #
@@ -55,4 +63,5 @@ cv_writer = Agent(
     llm=llm_engine,
     verbose=True,
     allow_delegation=False,
+    memory=False,                     # Disable memory to avoid extra summarization calls
 )

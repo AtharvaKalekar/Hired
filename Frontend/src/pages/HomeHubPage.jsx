@@ -1,326 +1,712 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Briefcase, Target, CalendarDays, Users, ChevronRight, Sparkles, Code2, MapPin, DollarSign, Activity, Clock, Tag, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Briefcase, MapPin, DollarSign, Clock, Code2, Sparkles, ExternalLink, RefreshCw, AlertCircle, ChevronDown, Trophy } from 'lucide-react';
 import GlassPanel from '../components/ui/GlassPanel';
 import GlowingButton from '../components/ui/GlowingButton';
-import { useNavigate } from 'react-router-dom';
+import useIsMobile from '../hooks/useIsMobile';
 
 export default function HomeHubPage() {
-  const [activeTab, setActiveTab] = useState('Jobs');
+  const isMobile = useIsMobile();
+  const [skills, setSkills] = useState('');
+  const [experience, setExperience] = useState('');
+  const [location, setLocation] = useState('');
+  const [category, setCategory] = useState('job');
   const [jobs, setJobs] = useState([]);
-  const [internships, setInternships] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [isDone, setIsDone] = useState(false);
+  const [reachedCap, setReachedCap] = useState(false);
+  const esRef = useRef(null);             // active EventSource connection
+  const sessionExcludeIds = useRef([]);   // IDs sent this session (for Find More dedup)
 
   const userInfo = JSON.parse(localStorage.getItem('user_info')) || {};
   const userId = userInfo._id;
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
+  // Quiet DB-only fetch when user switches category tabs (no scraping)
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        if (!userId) { setLoading(false); return; }
-        const res = await fetch(`${API_URL}/api/jobs/matched/${userId}`);
-        const data = await res.json();
-        if (data.success) setJobs(data.jobs);
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
+    if (!userId) return; // guard: don't fire before user is loaded
+    handleSearch(null, false);
+  }, [category]);
+
+  // Close SSE connection on unmount
+  useEffect(() => {
+    return () => {
+      if (esRef.current) { esRef.current.close(); esRef.current = null; }
     };
-    fetchJobs();
   }, []);
 
-  useEffect(() => {
-    if (activeTab === 'Internships' && internships.length === 0) {
-      setLoading(true);
-      const fetchInternships = async () => {
-        try {
-          if (!userId) { setLoading(false); return; }
-          const res = await fetch(`${API_URL}/api/jobs/internships/${userId}`);
-          const data = await res.json();
-          if (data.success) setInternships(data.internships);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
-      };
-      fetchInternships();
-    }
-    if (activeTab === 'Events' && events.length === 0) {
-      setLoading(true);
-      const fetchEvents = async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/jobs/events`);
-          const data = await res.json();
-          if (data.success) setEvents(data.events);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
-      };
-      fetchEvents();
-    }
-  }, [activeTab]);
+  const handleSearch = (e, triggerScrape = false) => {
+    if (e) e.preventDefault();
+    if (!userId) return;
 
-  const tabs = ['Jobs', 'Internships', 'Events'];
+    // Close any existing SSE connection
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
 
-  const MatchCard = ({ role, company, matchPct, isUrgent, salary, location, techStack, url }) => (
-    <motion.div 
-      whileHover={{ scale: 1.01, boxShadow: '0 8px 32px rgba(74, 59, 50, 0.08)' }}
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--outline-variant)',
-        borderRadius: '12px',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
-        marginBottom: '16px',
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-      onClick={() => url ? window.open(url, '_blank') : navigate('/swipe')}
-    >
-      {isUrgent && <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--tertiary)' }} />}
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <h4 style={{ fontSize: '18px', color: 'var(--primary)', letterSpacing: '-0.01em' }}>{role}</h4>
-            {isUrgent && <span style={{ background: 'var(--surface-container)', color: 'var(--tertiary)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, border: '1px solid rgba(217, 119, 54, 0.2)' }}>FAST TRACK</span>}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--on-surface-variant)', fontSize: '13px' }}>
-            <span style={{ fontWeight: 600 }}>{company}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12}/> {location}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><DollarSign size={12}/> {salary}</span>
-          </div>
-        </div>
-        
-        <div style={{ textAlign: 'right', background: 'var(--surface-container-high)', padding: '8px 12px', borderRadius: '8px' }}>
-          <div style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '18px' }}>{matchPct}%</div>
-          <div style={{ color: 'var(--on-surface-variant)', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <Sparkles size={10}/> Match
-          </div>
-        </div>
-      </div>
+    // Reset previous results and exclusions on new search or category tab switch
+    sessionExcludeIds.current = [];
+    setJobs([]);
 
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {(techStack || []).map(tech => (
-           <span key={tech} style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-             <Code2 size={12} /> {tech}
-           </span>
-        ))}
-      </div>
-    </motion.div>
-  );
+    setError('');
+    setLoading(true);
+    setSearched(true);
+    setIsDone(false);
+    setReachedCap(false);
+    setStatusMessage(category === 'meetup' || category === 'hackathon'
+      ? 'Searching events across Luma and Meetup...'
+      : 'Searching across top job boards...');
 
-  const InternCard = ({ title, company, location, stipend, duration, techStack, url, matchPct }) => (
-    <motion.div 
-      whileHover={{ scale: 1.01, boxShadow: '0 8px 32px rgba(74, 59, 50, 0.08)' }}
-      style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '12px', padding: '20px', cursor: 'pointer', marginBottom: '16px', position: 'relative', overflow: 'hidden' }}
-      onClick={() => url && window.open(url, '_blank')}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: 'var(--secondary)' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-        <div>
-          <h4 style={{ fontSize: '18px', color: 'var(--primary)', marginBottom: '4px' }}>{title}</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--on-surface-variant)', fontSize: '13px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 600 }}>{company}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12}/> {location}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><DollarSign size={12}/> {stipend}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12}/> {duration}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: 'right', background: 'rgba(16, 185, 129, 0.08)', padding: '8px 12px', borderRadius: '8px' }}>
-          <div style={{ color: '#10B981', fontWeight: 800, fontSize: '18px' }}>{matchPct}%</div>
-          <div style={{ color: 'var(--on-surface-variant)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Match</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {(techStack || []).map(tech => (
-          <span key={tech} style={{ background: 'var(--surface-container)', color: 'var(--on-surface-variant)', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Code2 size={12} /> {tech}
-          </span>
-        ))}
-      </div>
-    </motion.div>
-  );
+    const params = new URLSearchParams({
+      userId,
+      query:      skills.trim(),
+      location:   location.trim(),
+      category,
+      excludeIds: sessionExcludeIds.current.join(','),
+    });
 
-  const EventCard = ({ title, organizer, date, location, type, url, description }) => (
-    <motion.div 
-      whileHover={{ scale: 1.01, boxShadow: '0 8px 32px rgba(74, 59, 50, 0.08)' }}
-      style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '12px', padding: '20px', cursor: 'pointer', marginBottom: '16px', position: 'relative', overflow: 'hidden' }}
-      onClick={() => url && window.open(url, '_blank')}
-    >
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: type === 'Hackathon' ? '#F59E0B' : type === 'Workshop' ? '#8B5CF6' : '#3B82F6' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div>
-          <h4 style={{ fontSize: '18px', color: 'var(--primary)', marginBottom: '4px' }}>{title}</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--on-surface-variant)', fontSize: '13px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 600 }}>{organizer}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><CalendarDays size={12}/> {date}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12}/> {location}</span>
-          </div>
-        </div>
-        <span style={{ background: type === 'Hackathon' ? 'rgba(245,158,11,0.1)' : type === 'Workshop' ? 'rgba(139,92,246,0.1)' : 'rgba(59,130,246,0.1)', color: type === 'Hackathon' ? '#F59E0B' : type === 'Workshop' ? '#8B5CF6' : '#3B82F6', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
-          {type}
-        </span>
-      </div>
-      {description && <p style={{ fontSize: '13px', color: 'var(--on-surface-variant)', lineHeight: 1.5, marginBottom: '12px' }}>{description}</p>}
-      {url && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--secondary)', fontWeight: 600 }}>
-          <ExternalLink size={12} /> Register / Learn More
-        </div>
-      )}
-    </motion.div>
-  );
+    const es = new EventSource(`${API_URL}/api/jobs/search-stream?${params}`);
+    esRef.current = es;
 
-  const ActivityFeedItem = ({ title, desc, time, isPending }) => (
-    <div style={{ paddingLeft: '24px', position: 'relative', marginBottom: '24px' }}>
-      <div style={{ position: 'absolute', left: '-5px', top: '2px', width: '10px', height: '10px', borderRadius: '5px', background: isPending ? 'var(--surface-container-high)' : 'var(--secondary)', border: '2px solid var(--surface)' }} />
-      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', marginBottom: '4px' }}>{title}</div>
-      <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: '8px', lineHeight: 1.5 }}>{desc}</div>
-      <div style={{ fontSize: '11px', color: 'var(--on-surface-variant)', fontFamily: 'JetBrains Mono' }}>{time}</div>
-    </div>
-  );
+    es.addEventListener('job', (e) => {
+      const listing = JSON.parse(e.data);
 
-  const getTabHeading = () => {
-    if (activeTab === 'Jobs') return 'Algorithmically Curated Roles';
-    if (activeTab === 'Internships') return 'Matched Internship Programs';
-    if (activeTab === 'Events') return 'Tech Events & Hackathons';
-    return '';
+      // Apply experience filter client-side before appending
+      if (experience && (category === 'job' || category === 'internship')) {
+        const desc  = (listing.description || '').toLowerCase();
+        const title = (listing.role || '').toLowerCase();
+        if (experience === 'fresh' && !(
+          desc.includes('fresher') || desc.includes('no experience') ||
+          desc.includes('entry level') || title.includes('junior') || title.includes('fresher')
+        )) return;
+        if (experience === '1-3' && !/1\s*-\s*3|1\s*to\s*3|2\s*year|3\s*year|1\s*year/i.test(desc)) return;
+        if (experience === '3-5' && !/3\s*-\s*5|3\s*to\s*5|4\s*year|5\s*year/i.test(desc)) return;
+        if (experience === '5plus' && !/5\s*\+|6\s*year|7\s*year|8\s*year|9\s*year|10\s*year/i.test(desc)) return;
+      }
+
+      sessionExcludeIds.current.push(listing.id);
+      setJobs(prev => {
+        const updated = [...prev, listing];
+        return updated.sort((a, b) => (b.matchPct || 0) - (a.matchPct || 0));
+      });
+    });
+
+    es.addEventListener('status', (e) => {
+      const { message } = JSON.parse(e.data);
+      setStatusMessage(message);
+    });
+
+    es.addEventListener('done', (e) => {
+      const { reachedCap: cap } = JSON.parse(e.data);
+      setReachedCap(cap);
+      setIsDone(true);
+      setLoading(false);
+      es.close();
+      esRef.current = null;
+    });
+
+    es.addEventListener('timeout', () => {
+      setIsDone(true);
+      setLoading(false);
+      es.close();
+      esRef.current = null;
+    });
+
+    es.onerror = () => {
+      setLoading(false);
+      setIsDone(true);
+      es.close();
+      esRef.current = null;
+    };
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--on-surface-variant)', fontSize: '13px' }}>
-          <Sparkles size={16} style={{ display: 'block', margin: '0 auto 8px auto', color: 'var(--tertiary)', animation: 'pulse 1.5s infinite' }}/>
-          Mining Open Opportunities via Engine...
-        </div>
-      );
-    }
+  // Find More: opens a fresh SSE stream appending to current results
+  const handleFindMore = () => {
+    if (!userId) return;
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
 
-    if (activeTab === 'Jobs') {
-      return jobs.length > 0 ? jobs.map((job) => (
-        <MatchCard key={job.id} role={job.role} company={job.company} matchPct={job.matchPct} isUrgent={job.isUrgent} salary={job.salary} location={job.location} techStack={job.techStack} url={job.url} />
-      )) : <div style={{ padding: '20px', color: 'var(--on-surface-variant)', fontSize: '13px', textAlign: 'center' }}>No matched opportunities found.</div>;
-    }
+    setLoading(true);
+    setIsDone(false);
+    setReachedCap(false);
+    setStatusMessage('Finding more results...');
 
-    if (activeTab === 'Internships') {
-      return internships.length > 0 ? internships.map((intern) => (
-        <InternCard key={intern.id} {...intern} />
-      )) : <div style={{ padding: '20px', color: 'var(--on-surface-variant)', fontSize: '13px', textAlign: 'center' }}>No internships found in your region.</div>;
-    }
+    const params = new URLSearchParams({
+      userId,
+      query:      skills.trim(),
+      location:   location.trim(),
+      category,
+      excludeIds: sessionExcludeIds.current.join(','),
+    });
 
-    if (activeTab === 'Events') {
-      return events.length > 0 ? events.map((evt) => (
-        <EventCard key={evt.id} {...evt} />
-      )) : <div style={{ padding: '20px', color: 'var(--on-surface-variant)', fontSize: '13px', textAlign: 'center' }}>No upcoming events found.</div>;
-    }
+    const es = new EventSource(`${API_URL}/api/jobs/search-stream?${params}`);
+    esRef.current = es;
+
+    es.addEventListener('job', (e) => {
+      const listing = JSON.parse(e.data);
+      sessionExcludeIds.current.push(listing.id);
+      setJobs(prev => {
+        const updated = [...prev, listing];
+        return updated.sort((a, b) => (b.matchPct || 0) - (a.matchPct || 0));
+      });
+    });
+    es.addEventListener('status', (e) => {
+      const { message } = JSON.parse(e.data);
+      setStatusMessage(message);
+    });
+    es.addEventListener('done', (e) => {
+      const { reachedCap: cap } = JSON.parse(e.data);
+      setReachedCap(cap);
+      setIsDone(true);
+      setLoading(false);
+      es.close();
+      esRef.current = null;
+    });
+    es.addEventListener('timeout', () => {
+      setIsDone(true);
+      setLoading(false);
+      es.close();
+      esRef.current = null;
+    });
+    es.onerror = () => {
+      setLoading(false);
+      setIsDone(true);
+      es.close();
+      esRef.current = null;
+    };
   };
+
+  const handleReset = () => {
+    if (esRef.current) { esRef.current.close(); esRef.current = null; }
+    sessionExcludeIds.current = [];
+    setSkills('');
+    setExperience('');
+    setLocation('');
+    setCategory('job');
+    setError('');
+    setSearched(false);
+    setJobs([]);
+    setLoading(false);
+    setIsDone(false);
+    setReachedCap(false);
+    setStatusMessage('');
+  };
+
+
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr) 2.5fr 1.2fr', gap: '32px' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: searched ? 'auto' : 'calc(100vh - 160px)',
+      justifyContent: searched ? 'flex-start' : 'center',
+      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+      maxWidth: '1000px',
+      margin: '0 auto',
+      padding: isMobile ? '12px' : '24px',
+      gap: '32px'
+    }}>
       
-      {/* Column 1: Stats & Navigation */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <h2 style={{ fontSize: '28px' }}>Opportunity Hub</h2>
+      {/* Custom Styles */}
+      <style>{`
+        @keyframes custom-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
         
-        <GlassPanel intensity="low" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>Profile Strength Vectors</div>
+        .job-card {
+          background: #FFFFFF;
+          border: 1px solid #DCD6CD;
+          border-radius: 16px;
+          padding: 24px;
+          display: flex;
+          flex-direction: column;
+          cursor: pointer;
+          margin-bottom: 16px;
+          position: relative;
+          overflow: hidden;
+          transition: all 0.2s ease;
+        }
+        
+        .job-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px rgba(74, 59, 50, 0.08);
+          border-color: #C48B57;
+        }
+
+        .search-capsule {
+          display: flex;
+          align-items: center;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid var(--outline-variant);
+          border-radius: 9999px;
+          padding: 8px 8px 8px 24px;
+          box-shadow: 0 10px 30px rgba(74, 59, 50, 0.04);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          width: 100%;
+        }
+        
+        .search-capsule:focus-within {
+          border-color: var(--secondary);
+          box-shadow: 0 15px 40px rgba(196, 139, 87, 0.12), 0 0 0 3px rgba(196, 139, 87, 0.08);
+          background: #ffffff;
+        }
+
+        .search-section {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          padding: 0 16px;
+          position: relative;
+          height: 100%;
+        }
+
+        .search-section-input {
+          width: 100%;
+          border: none;
+          background: transparent;
+          outline: none;
+          color: var(--primary);
+          font-weight: 500;
+          font-size: 14px;
+          font-family: 'Inter', sans-serif;
+          padding: 6px 0;
+        }
+
+        .search-section-input::placeholder {
+          color: var(--on-surface-variant);
+          opacity: 0.65;
+        }
+        
+        .search-divider {
+          width: 1px;
+          height: 32px;
+          background: var(--outline-variant);
+          flex-shrink: 0;
+        }
+
+        /* Mobile stacked version */
+        @media (max-width: 768px) {
+          .search-capsule {
+            flex-direction: column;
+            border-radius: 24px;
+            padding: 16px;
+            gap: 12px;
+            align-items: stretch;
+          }
           
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}><span>Backend Architecture</span> <span>94%</span></div>
-            <div style={{ height: '4px', background: 'var(--surface-container-high)', borderRadius: '2px' }}><div style={{ width: '94%', height: '100%', background: 'var(--secondary)' }}/></div>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}><span>React / FE Setup</span> <span>88%</span></div>
-            <div style={{ height: '4px', background: 'var(--surface-container-high)', borderRadius: '2px' }}><div style={{ width: '88%', height: '100%', background: 'var(--secondary)' }}/></div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}><span>System Design</span> <span>72%</span></div>
-            <div style={{ height: '4px', background: 'var(--surface-container-high)', borderRadius: '2px' }}><div style={{ width: '72%', height: '100%', background: 'var(--tertiary)' }}/></div>
-          </div>
-        </GlassPanel>
+          .search-section {
+            padding: 12px 4px;
+            border-bottom: 1px solid var(--outline-variant);
+          }
+          
+          .search-section:last-of-type {
+            border-bottom: none;
+          }
+          
+          .search-divider {
+            display: none;
+          }
+        }
+      `}</style>
 
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '12px', overflow: 'hidden' }}>
-           {['Active Job Search', 'Passive Discovery', 'Interview Prep'].map((mode, i) => (
-             <div key={mode} style={{ padding: '16px 20px', borderBottom: i !== 2 ? '1px solid var(--outline-variant)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: i === 0 ? 'var(--surface-container)' : 'transparent' }}>
-               <span style={{ fontSize: '13px', fontWeight: i === 0 ? 600 : 500, color: i === 0 ? 'var(--primary)' : 'var(--on-surface-variant)' }}>{mode}</span>
-               {i === 0 && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--tertiary)', boxShadow: '0 0 8px rgba(217, 119, 54, 0.4)' }} />}
-             </div>
-           ))}
-        </div>
-      </div>
-
-      {/* Column 2: Main Feed */}
-      <div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', background: 'var(--surface-container-low)', padding: '6px', borderRadius: '12px', display: 'inline-flex', border: '1px solid var(--outline-variant)' }}>
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                background: activeTab === tab ? 'var(--surface)' : 'transparent',
-                color: activeTab === tab ? 'var(--primary)' : 'var(--on-surface-variant)',
-                boxShadow: activeTab === tab ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
-                border: 'none', padding: '8px 24px', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', transition: 'all 0.2s ease'
-              }}
+      {/* Main Layout containing Hero & Search Capsule */}
+      <motion.div
+        layout
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '32px',
+          width: '100%',
+          textAlign: 'center',
+          marginTop: searched ? '12px' : '0px'
+        }}
+      >
+        {/* Hero Banner */}
+        <motion.div
+          layout
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            maxWidth: '650px'
+          }}
+        >
+          <motion.h2 
+            layout
+            style={{ 
+              fontSize: isMobile ? '28px' : searched ? '32px' : '44px', 
+              fontWeight: 800, 
+              color: 'var(--primary)', 
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2
+            }}
+          >
+            Find your dream job now
+          </motion.h2>
+          {!searched && (
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              style={{ fontSize: isMobile ? '14px' : '16px', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}
             >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '16px', color: 'var(--on-surface-variant)' }}>{getTabHeading()}</h3>
-          {activeTab === 'Jobs' && (
-            <span onClick={() => navigate('/swipe')} style={{ color: 'var(--tertiary)', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-              <Activity size={14}/> Enter Swiper Mode
-            </span>
+              Over 500,000+ opportunities aggregated from Naukri, LinkedIn, remote portals, and tech communities
+            </motion.p>
           )}
+        </motion.div>
+
+        {/* Category Selector Tab Pills */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '-8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { id: 'job', label: 'Jobs', icon: Briefcase },
+            { id: 'internship', label: 'Internships', icon: Code2 },
+            { id: 'meetup', label: 'Meetups', icon: Sparkles },
+            { id: 'hackathon', label: 'Hackathons', icon: Trophy }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = category === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setCategory(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  borderRadius: '9999px',
+                  border: isSelected ? '1px solid var(--secondary)' : '1px solid var(--outline-variant)',
+                  background: isSelected ? 'var(--primary)' : 'rgba(255, 255, 255, 0.6)',
+                  color: isSelected ? 'var(--on-primary)' : 'var(--on-surface-variant)',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: isSelected ? '0 4px 12px rgba(74, 59, 50, 0.12)' : 'none',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                }}
+              >
+                <Icon size={14} style={{ color: isSelected ? 'var(--secondary)' : 'inherit' }} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {renderContent()}
-        </div>
-      </div>
-
-      {/* Column 3: Active Intelligence Feed */}
-      <div>
-         <div style={{ background: 'var(--surface)', border: '1px solid var(--outline-variant)', borderRadius: '12px', padding: '24px', height: '100%' }}>
-            <h3 style={{ fontSize: '14px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
-              Active Intelligence
-            </h3>
+        {/* Search Capsule Form */}
+        <motion.form 
+          layout
+          onSubmit={(e) => handleSearch(e, true)} 
+          style={{ width: '100%', maxWidth: '850px' }}
+        >
+          <div className="search-capsule">
             
-            <div style={{ position: 'relative', borderLeft: '1px solid var(--surface-container-high)', marginLeft: '4px' }}>
-               <ActivityFeedItem 
-                 title="Application Submitted" 
-                 desc="Agent successfully filled Meta's Workday portal for 'Sr. Backend Role'." 
-                 time="Just now" 
-               />
-               <ActivityFeedItem 
-                 title="Referral Request Drafted" 
-                 desc="Drafted an introduction email to Sarah Jenkins at Deloitte." 
-                 time="45 mins ago" 
-               />
-               <ActivityFeedItem 
-                 title="Market Scan Complete" 
-                 desc="Analyzed 4,203 open roles. 12 added to your discovery queue." 
-                 time="2 hours ago" 
-               />
-               <ActivityFeedItem 
-                 title="Portfolio Analysis" 
-                 desc="Your latest GitHub repo (Node-Cache) boosted your backend match probability by 4%." 
-                 time="Yesterday, 14:20" 
-                 isPending
-               />
+            {/* Field 1: Skills */}
+            <div className="search-section" style={{ flex: 1.4 }}>
+              <Search size={18} style={{ color: 'var(--on-surface-variant)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder={category === 'meetup' || category === 'hackathon' ? "Enter event keywords (e.g. AI, Web3)" : "Enter skills / designations / companies"}
+                value={skills}
+                onChange={(e) => setSkills(e.target.value)}
+                className="search-section-input"
+              />
             </div>
 
-            <GlowingButton style={{ width: '100%', marginTop: '32px', fontSize: '13px', padding: '10px' }}>
-              Open Command Center
-            </GlowingButton>
-         </div>
-      </div>
+            {(category === 'job' || category === 'internship') && (
+              <>
+                <div className="search-divider"></div>
 
+                {/* Field 2: Experience */}
+                <div className="search-section" style={{ flex: 0.9 }}>
+                  <Clock size={18} style={{ color: 'var(--on-surface-variant)', flexShrink: 0 }} />
+                  <select
+                    value={experience}
+                    onChange={(e) => setExperience(e.target.value)}
+                    className="search-section-input"
+                    style={{ cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', paddingRight: '24px' }}
+                  >
+                    <option value="">Select experience</option>
+                    <option value="fresh">Fresher (0-1 Yrs)</option>
+                    <option value="1-3">Early Career (1-3 Yrs)</option>
+                    <option value="3-5">Mid-Senior (3-5 Yrs)</option>
+                    <option value="5plus">Senior Lead (5+ Yrs)</option>
+                  </select>
+                  <ChevronDown size={14} style={{ color: 'var(--on-surface-variant)', position: 'absolute', right: '16px', pointerEvents: 'none' }} />
+                </div>
+              </>
+            )}
+
+            <div className="search-divider"></div>
+
+            {/* Field 3: Location */}
+            <div className="search-section" style={{ flex: 1.1 }}>
+              <MapPin size={18} style={{ color: 'var(--on-surface-variant)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Enter location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="search-section-input"
+              />
+            </div>
+
+            {/* Search button inside capsule */}
+            <GlowingButton 
+              type="submit" 
+              style={{ 
+                padding: '0 28px', 
+                height: '48px', 
+                borderRadius: '9999px', 
+                fontSize: '15px', 
+                fontWeight: 700, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                width: isMobile ? '100%' : 'auto',
+                marginTop: isMobile ? '8px' : '0'
+              }}
+            >
+              <Search size={16} /> Search
+            </GlowingButton>
+          </div>
+        </motion.form>
+      </motion.div>
+
+      {/* Reset button under search when in results mode */}
+      {searched && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{ display: 'flex', justifyContent: 'center', marginTop: '-16px' }}
+        >
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{
+              background: 'transparent',
+              color: 'var(--on-surface-variant)',
+              border: '1px solid var(--outline-variant)',
+              padding: '8px 16px',
+              borderRadius: '9999px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <RefreshCw size={12} /> Clear Search / Back
+          </button>
+        </motion.div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', color: '#EF4444', fontSize: '13px', maxWidth: '850px', margin: '0 auto', width: '100%' }}
+        >
+          <AlertCircle size={16} /> {error}
+        </motion.div>
+      )}
+
+      {/* Results Header Section */}
+      {searched && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--outline-variant)', paddingBottom: '12px', marginTop: '12px' }}
+        >
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--primary)' }}>
+            Search Results ({jobs.length})
+          </h3>
+          <span style={{ fontSize: '12px', color: 'var(--on-surface-variant)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Sparkles size={12} style={{ color: 'var(--tertiary)' }} /> Powered by Scraped Direct Listings
+          </span>
+        </motion.div>
+      )}
+
+      {/* Results List */}
+      {searched && (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '200px', gap: '16px' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {jobs.length > 0 && jobs.map((job) => (
+              <div
+                key={job.id}
+                className="job-card glass-panel"
+                onClick={() => job.url && window.open(job.url, '_blank')}
+              >
+                <div style={{ display: 'flex', gap: '20px', flexDirection: isMobile ? 'column' : 'row' }}>
+                  {(category === 'meetup' || category === 'hackathon') && (
+                    <div style={{ flexShrink: 0, width: isMobile ? '100%' : '140px', height: isMobile ? '120px' : '110px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #DCD6CD' }}>
+                      <img 
+                        src={job.image_url || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=400&auto=format&fit=crop'} 
+                        alt={job.role}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=400&auto=format&fit=crop';
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '12px' }}>
+                      <div>
+                        <h4 style={{ fontSize: isMobile ? '16px' : '18px', color: '#4A3B32', fontWeight: 700, marginBottom: '6px', letterSpacing: '-0.01em' }}>
+                          {job.role}
+                        </h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px 12px' : '16px', flexWrap: 'wrap', color: '#6A5D54', fontSize: '13px' }}>
+                          <span style={{ fontWeight: 600 }}>{job.company}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} /> {job.location}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><DollarSign size={12} /> {job.salary}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right', background: '#E8E3DA', padding: '8px 16px', borderRadius: '12px', border: '1px solid #DCD6CD' }}>
+                        <div style={{ color: '#4A3B32', fontWeight: 800, fontSize: '20px', lineHeight: '1.2' }}>{job.matchPct}%</div>
+                        <div style={{ color: '#6A5D54', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
+                          <Sparkles size={9} /> Match
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #DCD6CD', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {(job.techStack || []).slice(0, 4).map(tech => (
+                          <span key={tech} style={{ background: '#F5F2EC', color: '#6A5D54', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #DCD6CD' }}>
+                            <Code2 size={10} /> {tech}
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {job.url && (
+                        <span style={{ color: '#C48B57', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Apply Externally <ExternalLink size={12} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Premium AI Loading Animation */}
+          <AnimatePresence>
+            {loading && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: jobs.length > 0 ? '24px' : '60px 0',
+                  gap: '20px',
+                  color: 'var(--primary)',
+                  textAlign: 'center',
+                  border: '1px dashed rgba(196, 139, 87, 0.25)',
+                  background: 'rgba(196, 139, 87, 0.04)',
+                  borderRadius: '16px',
+                  marginTop: jobs.length > 0 ? '16px' : '20px',
+                  width: '100%',
+                }}
+              >
+                {/* AI Pulsing Glow & Orbiting Rings */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full bg-orange-500/10 blur-md animate-pulse"></div>
+                  <div className="absolute inset-0 rounded-full border-2 border-dashed border-amber-500/40 animate-spin"></div>
+                  <div className="absolute w-10 h-10 rounded-full border border-dotted border-orange-400/30 animate-spin"></div>
+                  <Sparkles className="text-amber-500 w-6 h-6 animate-bounce" />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="text-base font-bold text-amber-500 tracking-wide animate-pulse">
+                    {jobs.length > 0 ? `${jobs.length} result${jobs.length !== 1 ? 's' : ''} found — still searching...` : 'Searching live job boards...'}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--on-surface-variant)', maxWidth: '420px', margin: '0 auto', lineHeight: 1.4 }}>
+                    {statusMessage || 'Scanning sources in real-time. Results appear as they are found.'}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Find More / End of Results */}
+          {!loading && isDone && searched && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '20px 0' }}
+            >
+              {reachedCap ? (
+                <button
+                  id="find-more-btn"
+                  type="button"
+                  onClick={handleFindMore}
+                  style={{
+                    background: 'var(--primary)',
+                    color: 'var(--on-primary)',
+                    border: 'none',
+                    padding: '12px 28px',
+                    borderRadius: '9999px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 20px rgba(74, 59, 50, 0.15)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <RefreshCw size={14} /> Find More {category === 'internship' ? 'Internships' : category === 'meetup' ? 'Events' : category === 'hackathon' ? 'Hackathons' : 'Jobs'}
+                </button>
+              ) : (
+                <p style={{ fontSize: '13px', color: 'var(--on-surface-variant)', textAlign: 'center' }}>
+                  {jobs.length === 0 ? '' : "That's all we found for this search. Adjust keywords or check back soon!"}
+                </p>
+              )}
+            </motion.div>
+          )}
+
+          {!loading && jobs.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: '12px', color: 'var(--on-surface-variant)', textAlign: 'center' }}
+            >
+              <Briefcase size={36} style={{ opacity: 0.4 }} />
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>No matching jobs found.</div>
+              <div style={{ fontSize: '12px', maxWidth: '300px' }}>Try adjusting your keywords, experience filter, or location details.</div>
+            </motion.div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+

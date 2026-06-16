@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, MapPin, DollarSign, ExternalLink, ArrowLeft, Bookmark, Sparkles, X, Copy, Check, FileText, Mail, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import useIsMobile from '../hooks/useIsMobile';
 
 export default function SavedJobsPage() {
+  const isMobile = useIsMobile();
   const [savedJobs, setSavedJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applyingJobIdx, setApplyingJobIdx] = useState(null);
@@ -71,21 +73,21 @@ export default function SavedJobsPage() {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', height: 'calc(100vh - 80px)', overflowY: 'auto' }}>
+    <div style={{ padding: isMobile ? '16px 12px' : '24px', maxWidth: '1200px', margin: '0 auto', height: 'calc(100vh - 80px)', overflowY: 'auto' }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '20px' : '0', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '32px', width: '100%' }}>
         <div>
           <button onClick={() => navigate('/swipe')} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', border: 'none', color: 'var(--on-surface-variant)', cursor: 'pointer', padding: 0, marginBottom: '16px', fontSize: '14px', fontWeight: 600 }}>
             <ArrowLeft size={16} /> Back to Discovery
           </button>
-          <h1 style={{ fontSize: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{ fontSize: isMobile ? '24px' : '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Bookmark color="var(--primary)" /> Portfolio of Interest
           </h1>
-          <p style={{ color: 'var(--on-surface-variant)', marginTop: '8px' }}>Review your saved roles. Click "AI Apply" to generate a tailored resume and cover letter instantly.</p>
+          <p style={{ color: 'var(--on-surface-variant)', marginTop: '8px', fontSize: '13px', lineHeight: 1.5 }}>Review your saved roles. Click "AI Apply" to generate a tailored resume and cover letter instantly.</p>
         </div>
         
-        <div style={{ background: 'var(--surface)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--outline-variant)' }}>
+        <div style={{ background: 'var(--surface)', padding: '12px 24px', borderRadius: '12px', border: '1px solid var(--outline-variant)', width: isMobile ? '100%' : 'auto' }}>
           <div style={{ fontSize: '12px', textTransform: 'uppercase', color: 'var(--on-surface-variant)', letterSpacing: '0.05em' }}>Saved Pipeline</div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--primary)' }}>{savedJobs.length}</div>
         </div>
@@ -102,7 +104,7 @@ export default function SavedJobsPage() {
           <p style={{ color: 'var(--on-surface-variant)' }}>Go back to the Swipe Discovery queue to start matching with roles.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(350px, 1fr))', gap: '24px' }}>
           {savedJobs.map((job, idx) => (
             <motion.div 
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
@@ -170,21 +172,21 @@ export default function SavedJobsPage() {
         {applicationModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '12px' : '24px' }}
             onClick={() => setApplicationModal(null)}
           >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              style={{ background: 'var(--surface)', borderRadius: '20px', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', border: '1px solid var(--outline-variant)', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+              style={{ background: 'var(--surface)', borderRadius: isMobile ? '16px' : '20px', width: '100%', maxWidth: '800px', maxHeight: '95vh', overflowY: 'auto', border: '1px solid var(--outline-variant)', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
             >
               {/* Modal Header */}
-              <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: isMobile ? '16px 20px' : '24px 32px', borderBottom: '1px solid var(--outline-variant)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h2 style={{ fontSize: '22px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <h2 style={{ fontSize: isMobile ? '18px' : '22px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Sparkles color="var(--primary)" size={22} /> Application Package Ready
                   </h2>
-                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '14px', marginTop: '4px' }}>
+                  <p style={{ color: 'var(--on-surface-variant)', fontSize: '13px', marginTop: '4px' }}>
                     {applicationModal.jobTitle} at {applicationModal.company}
                   </p>
                 </div>
@@ -193,7 +195,7 @@ export default function SavedJobsPage() {
                 </button>
               </div>
 
-              <div style={{ padding: '32px' }}>
+              <div style={{ padding: isMobile ? '16px 20px' : '32px' }}>
                 {/* Tailored Resume Section */}
                 <div style={{ marginBottom: '32px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -225,7 +227,7 @@ export default function SavedJobsPage() {
                     padding: '16px', 
                     fontSize: '11px', 
                     lineHeight: 1.5, 
-                    maxHeight: '250px', 
+                    maxHeight: isMobile ? '150px' : '250px', 
                     overflowY: 'auto',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',
@@ -256,7 +258,7 @@ export default function SavedJobsPage() {
                     padding: '20px', 
                     fontSize: '14px', 
                     lineHeight: 1.7, 
-                    maxHeight: '250px', 
+                    maxHeight: isMobile ? '150px' : '250px', 
                     overflowY: 'auto',
                     color: 'var(--on-surface)',
                     whiteSpace: 'pre-wrap'

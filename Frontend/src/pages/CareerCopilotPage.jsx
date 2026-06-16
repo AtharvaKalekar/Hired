@@ -5,12 +5,14 @@ import {
   Search, Building2, Briefcase, MapPin, Users, Sparkles,
   RefreshCw, ChevronRight, MessageSquare, X
 } from 'lucide-react';
+import useIsMobile from '../hooks/useIsMobile';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5001') + '/api';
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ProfileCard({ profile, role, company, userName, onGenerateReferral }) {
+  const isMobile = useIsMobile();
   const [generating, setGenerating] = useState(false);
   const [referralMsg, setReferralMsg] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -50,19 +52,24 @@ function ProfileCard({ profile, role, company, userName, onGenerateReferral }) {
       }}
     >
       {/* Card header */}
-      <div style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-        <img
-          src={profile.avatar}
-          alt={profile.name}
-          style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, border: '2px solid var(--outline-variant)' }}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--on-surface)', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {profile.name}
+      <div style={{ padding: '16px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '12px', alignItems: isMobile ? 'stretch' : 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <img
+            src={profile.avatar}
+            alt={profile.name}
+            style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, border: '2px solid var(--outline-variant)' }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--on-surface)', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {profile.name}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', lineHeight: 1.4 }}>
+              {profile.role}
+            </div>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: '4px', lineHeight: 1.4 }}>
-            {profile.role}
-          </div>
+        </div>
+        
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: isMobile ? '0' : '60px' }}>
           {profile.location && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--on-surface-variant)' }}>
               <MapPin size={10} />
@@ -70,22 +77,24 @@ function ProfileCard({ profile, role, company, userName, onGenerateReferral }) {
             </div>
           )}
           {profile.connections && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--on-surface-variant)', marginTop: '2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--on-surface-variant)' }}>
               <Users size={10} />
               {profile.connections}
             </div>
           )}
         </div>
+
         <a
           href={profile.linkedinUrl}
           target="_blank"
           rel="noreferrer"
           style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
             padding: '6px 10px', borderRadius: '6px',
             background: '#0A66C2', color: 'white',
             fontSize: '11px', fontWeight: 600, textDecoration: 'none',
-            flexShrink: 0, whiteSpace: 'nowrap'
+            flexShrink: 0, whiteSpace: 'nowrap',
+            alignSelf: isMobile ? 'stretch' : 'flex-start'
           }}
         >
           <Linkedin size={12} /> View
@@ -278,6 +287,7 @@ function parseIntent(input) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CareerCopilotPage() {
+  const isMobile = useIsMobile();
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -389,7 +399,7 @@ export default function CareerCopilotPage() {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)', gap: '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: isMobile ? 'calc(100vh - 88px)' : 'calc(100vh - 100px)', gap: '0' }}>
 
       {/* Header */}
       <div style={{

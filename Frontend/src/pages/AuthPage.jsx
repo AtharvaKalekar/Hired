@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Linkedin, ArrowRight, Activity, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlowingButton from '../components/ui/GlowingButton';
+import useIsMobile from '../hooks/useIsMobile';
 
 const InputField = ({ label, type = "text", placeholder, value, onChange }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
@@ -47,6 +48,7 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -89,7 +91,7 @@ export default function AuthPage() {
     <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden', background: 'var(--bg)' }}>
 
       {/* Functional Side (Left) */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '40px 48px', position: 'relative', zIndex: 10, background: 'var(--surface)' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: isMobile ? '24px 20px' : '40px 48px', position: 'relative', zIndex: 10, background: 'var(--surface)' }}>
         <div
           onClick={() => navigate('/')}
           style={{ fontFamily: 'Manrope', fontWeight: 800, fontSize: '20px', letterSpacing: '-0.02em', color: 'var(--primary)', cursor: 'pointer', display: 'inline-block' }}
@@ -167,7 +169,7 @@ export default function AuthPage() {
       </div>
 
       {/* Ambient Side (Right) - Deep Espresso Contrast */}
-      <div style={{ flex: 1, position: 'relative', background: '#2D241E', borderLeft: '1px solid var(--outline-variant)', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ flex: 1, position: 'relative', background: '#2D241E', borderLeft: '1px solid var(--outline-variant)', overflow: 'hidden', display: isMobile ? 'none' : 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
 
         {/* Dynamic Auras */}
         <motion.div

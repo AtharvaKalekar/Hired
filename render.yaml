@@ -1,9 +1,10 @@
 services:
+  # Backend Web Service
   - type: web
     name: hired-backend
     env: node
     rootDir: Backend
-    buildCommand: npm install && pip3 install -r ai_agent/requirements.txt
+    buildCommand: npm install && python3 -m venv ai_agent/venv && ./ai_agent/venv/bin/pip install -r ai_agent/requirements.txt
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
@@ -11,10 +12,24 @@ services:
       - key: PORT
         value: 5001
       - key: MONGODB_URI
-        sync: false   # Set this manually in Render dashboard
+        sync: false   # Set this manually in the Render dashboard
       - key: JWT_SECRET
-        sync: false   # Set this manually in Render dashboard
+        sync: false   # Set this manually in the Render dashboard
       - key: SERPAPI_KEY
-        sync: false   # Set this manually in Render dashboard
+        sync: false   # Set this manually in the Render dashboard
       - key: GROQ_API_KEY
-        sync: false   # Set this manually in Render dashboard
+        sync: false   # Set this manually in the Render dashboard
+
+  # Frontend Static Site
+  - type: web
+    name: hired-frontend
+    env: static
+    rootDir: Frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: hired-backend
+          type: web
+          property: host

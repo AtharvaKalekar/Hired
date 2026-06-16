@@ -38,6 +38,9 @@ def get_leetcode_profile(username: str) -> str:
     by difficulty (Easy / Medium / Hard), ranking, and badges.
     Returns a formatted text summary.
     """
+    if not username or username.lower() == 'none':
+        return "No LeetCode profile provided."
+
     headers = {
         "Content-Type": "application/json",
         "Referer": "https://leetcode.com",

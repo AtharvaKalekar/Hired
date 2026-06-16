@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import useIsMobile from './hooks/useIsMobile';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LandingPage from './pages/LandingPage';
@@ -13,17 +15,53 @@ import DashboardPage from './pages/DashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import AuthRoute from './components/AuthRoute';
 
-const WorkspaceLayout = ({ children }) => (
-  <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' }}>
-    <Sidebar />
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Header />
-      <main style={{ flex: 1, padding: '32px 48px', overflowY: 'auto' }}>
-        {children}
-      </main>
+const WorkspaceLayout = ({ children }) => {
+  const isMobile = useIsMobile();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
+      {/* Sidebar Overlay/Backdrop for Mobile */}
+      {isMobile && isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99,
+          }}
+        />
+      )}
+      
+      {/* Sidebar Container */}
+      <div style={{
+        position: isMobile ? 'fixed' : 'relative',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        height: '100vh',
+        zIndex: 100,
+        transform: isMobile ? (isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        display: 'flex',
+      }}>
+        <Sidebar onClose={() => setIsSidebarOpen(false)} />
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: '100%' }}>
+        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <main style={{ flex: 1, padding: isMobile ? '16px 20px' : '32px 48px', overflowY: 'auto' }}>
+          {children}
+        </main>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 function App() {
   return (

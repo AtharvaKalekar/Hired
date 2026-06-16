@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Bell, Settings, Command, LogOut } from 'lucide-react';
+import { Search, Bell, Settings, Command, LogOut, Menu } from 'lucide-react';
+import useIsMobile from '../../hooks/useIsMobile';
 
-export default function Header() {
+export default function Header({ onMenuClick }) {
+  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const pathParts = location.pathname.split('/').filter(Boolean);
@@ -47,20 +49,42 @@ export default function Header() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 32px',
+      padding: isMobile ? '0 16px' : '0 32px',
       position: 'sticky',
       top: 0,
       zIndex: 10,
     }}>
       
-      {/* Breadcrumbs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--on-surface-variant)' }}>
-        <span style={{ fontWeight: 500 }}>Workspace</span>
-        <span>/</span>
-        <span style={{ color: 'var(--primary)', fontWeight: 600, textTransform: 'capitalize' }}>{currentPath}</span>
+      {/* Breadcrumbs / Burger Menu */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {isMobile && (
+          <button 
+            onClick={onMenuClick}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--primary)',
+              padding: '8px',
+              marginRight: '-4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+            <span style={{ fontWeight: 500 }}>Workspace</span>
+            <span>/</span>
+            <span style={{ color: 'var(--primary)', fontWeight: 600, textTransform: 'capitalize' }}>{currentPath}</span>
+          </div>
+        )}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '24px' }}>
         {/* Global Search */}
         <div style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)' }}>
@@ -68,9 +92,9 @@ export default function Header() {
           </div>
           <input 
             type="text" 
-            placeholder="Search roles or companies..."
+            placeholder={isMobile ? "Search..." : "Search roles or companies..."}
             style={{
-              width: '280px',
+              width: isMobile ? '120px' : '280px',
               padding: '10px 12px 10px 36px',
               background: 'var(--surface-container)',
               border: '1px solid transparent',
@@ -92,15 +116,17 @@ export default function Header() {
               e.target.style.boxShadow = 'none';
             }}
           />
-          <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center', background: 'var(--surface-container-high)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'JetBrains Mono' }}>
-             <Command size={10} /> K
-          </div>
+          {!isMobile && (
+            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--on-surface-variant)', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center', background: 'var(--surface-container-high)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'JetBrains Mono' }}>
+               <Command size={10} /> K
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--on-surface-variant)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '12px' : '16px', color: 'var(--on-surface-variant)' }}>
           <Bell size={18} style={{ cursor: 'pointer' }} />
-          <Settings size={18} style={{ cursor: 'pointer' }} />
-          <div style={{ width: '1px', height: '24px', background: 'var(--outline-variant)' }} />
+          {!isMobile && <Settings size={18} style={{ cursor: 'pointer' }} />}
+          {!isMobile && <div style={{ width: '1px', height: '24px', background: 'var(--outline-variant)' }} />}
           
           <div style={{ position: 'relative' }}>
             <div 
