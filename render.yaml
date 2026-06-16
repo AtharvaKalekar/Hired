@@ -21,9 +21,8 @@ services:
         sync: false   # Set this manually in the Render dashboard
 
   # Frontend Static Site
-  - type: web
+  - type: static
     name: hired-frontend
-    env: static
     rootDir: Frontend
     buildCommand: npm install && npm run build
     publishDir: dist
