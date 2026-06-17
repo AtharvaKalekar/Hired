@@ -241,11 +241,7 @@ function BotMessage({ msg }) {
 function parseIntent(input) {
   const lower = input.toLowerCase();
 
-  // Detect referral / find people intent
-  const referralKeywords = ['referral', 'refer', 'find people', 'people at', 'who works', 'employees at', 'contact at', 'network at'];
-  const isReferralIntent = referralKeywords.some(k => lower.includes(k));
-
-  // Extract company 
+  // Extract company
   let company = null;
   const companyPatterns = [
     /(?:at|in|from|@)\s+([A-Z][a-zA-Z0-9\s&.]+?)(?:\s+for|\s+company|\s+inc|\s+ltd|\s*$)/,
@@ -267,6 +263,14 @@ function parseIntent(input) {
       break;
     }
   }
+
+  // Detect referral / find people intent
+  const referralKeywords = [
+    'referral', 'refer', 'find people', 'people at', 'who works', 'employees at', 'contact at', 'network at',
+    'connection', 'connect', 'employee', 'worker', 'staff', 'find me', 'search', 'get me', 'looking for'
+  ];
+  // If we found a company, we assume it's a referral/search request. Otherwise, check keywords.
+  const isReferralIntent = company ? true : referralKeywords.some(k => lower.includes(k));
 
   // Extract role
   const roleKeywords = ['software engineer', 'frontend', 'backend', 'fullstack', 'full stack', 'data scientist', 'ml engineer', 'product manager', 'pm', 'devops', 'sde', 'swe', 'manager', 'developer', 'engineer', 'analyst', 'designer', 'architect', 'lead', 'intern', 'director', 'vp'];
