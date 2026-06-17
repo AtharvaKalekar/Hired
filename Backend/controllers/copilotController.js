@@ -119,7 +119,7 @@ Rules:
 - Do NOT add subject lines, just the message body`;
 
   const payload = JSON.stringify({
-    model: 'llama-3.3-70b-versatile',
+    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
     messages: [
       { role: 'system', content: 'You are an expert professional networking coach who writes highly personalized, concise LinkedIn outreach messages.' },
       { role: 'user', content: prompt }

@@ -28,10 +28,14 @@ RESUME / PROFILE CONTENT:
 {text}
 """
 
+    groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    if not groq_model.startswith("groq/"):
+        groq_model = f"groq/{groq_model}"
+
     for attempt in range(retries):
         try:
             response = completion(
-                model="groq/llama-3.3-70b-versatile",
+                model=groq_model,
                 messages=[
                     {"role": "system", "content": "You are a professional assistant that outputs strictly valid JSON arrays of strings. Never output markdown format or extra text."},
                     {"role": "user", "content": prompt}

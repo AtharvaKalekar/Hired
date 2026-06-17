@@ -29,10 +29,14 @@ def call_groq(prompt: str, retries: int = 3) -> str:
     if not api_key:
         raise ValueError("GROQ_API_KEY not set in environment or .env")
 
+    groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    if not groq_model.startswith("groq/"):
+        groq_model = f"groq/{groq_model}"
+
     for attempt in range(retries):
         try:
             response = completion(
-                model="groq/llama-3.3-70b-versatile",
+                model=groq_model,
                 messages=[
                     {"role": "system", "content": "You are a world-class technical resume writer and career strategist."},
                     {"role": "user", "content": prompt}

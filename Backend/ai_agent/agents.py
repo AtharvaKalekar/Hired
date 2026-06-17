@@ -11,8 +11,12 @@ from tools.linkedin_tool import get_linkedin_profile
 # ------------------------------------------------------------------ #
 #  High-Speed LLM via Groq LPU
 # ------------------------------------------------------------------ #
+groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+if not groq_model.startswith("groq/"):
+    groq_model = f"groq/{groq_model}"
+
 llm_engine = LLM(
-    model="groq/llama-3.3-70b-versatile",  # Kept as requested by the user
+    model=groq_model,
     api_key=os.getenv("GROQ_API_KEY", ""),
     base_url="https://api.groq.com/openai/v1",
     max_retries=10
